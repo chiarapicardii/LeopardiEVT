@@ -1,0 +1,16 @@
+{
+  "editionUrls": ["assets/data/canti_completi.xml"],
+  "editionImagesSource": {
+    "manifest": { "value": "", "enable": false },
+    "graphics": { "value": "url", "enable": false }
+  },
+  "imagesFolderUrls": {
+    "single": "assets/images/",
+    "double": "assets/images/"
+  },
+  "configurationUrls": {
+    "edition": "assets/config/edition_config.json",
+    "ui": "assets/config/ui_config.json",
+    "editorialConventions": "assets/config/editorial_conventions_config.json"
+  }
+}

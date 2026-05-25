@@ -1,0 +1,98 @@
+{
+  "editionTitle": "Giacomo Leopardi - Canti",
+  "badge": "Edizione F31",
+  "editionHome": "https://github.com/tuo-username/progetto-leopardi",
+  "availableEditionLevels": [
+    {
+      "id": "critical",
+      "label": "Critical Edition",
+      "enable": true,
+      "hidden": false,
+      "layerColors": {
+        "F31": "#e8f4f8",
+        "B20": "#fffde8", 
+        "B24": "#fce8e8",
+        "B26": "#e8fce8",
+        "N35": "#fdf3e7",
+        "R18": "#f3e8fd"
+      }
+    }
+  ],
+  "defaultEdition": "critical",
+  "defaultViewMode": "readingText",
+  "proseVersesToggler": true,
+  "defaultTextFlow": "critical",
+  "downloadableXMLSource": true,
+  "namedEntitiesLists": {
+    "persons": { "defaultLabel": "Persons", "enable": false },
+    "places": { "defaultLabel": "Places", "enable": false },
+    "organizations": { "defaultLabel": "Organizations", "enable": false },
+    "relations": { "defaultLabel": "Relations", "enable": false },
+    "events": { "defaultLabel": "Events", "enable": false }
+  },
+  "showLists": false,
+  "entitiesSelectItems": [],
+  "notSignificantVariants": [
+    "type=orthographic"
+  ],
+  "verseNumberPrinter": 5,
+  "readingColorLight": "rgb(208, 220, 255)",
+  "readingColorDark": "rgb(101, 138, 255)",
+  "externalBibliography": {
+    "biblAttributeToMatch": "xml:id",
+    "elementAttributesToMatch": [
+      "target",
+      "source"
+    ]
+  },
+  "biblView": {
+    "propsToShow": [
+      "author",
+      "title",
+      "date",
+      "editor"
+    ],
+    "showAttrNames": false,
+    "showEmptyValues": false,
+    "inline": true,
+    "commaSeparated": true,
+    "showMainElemTextContent": true
+  },
+  "analogueMarkers": [
+    "ParallelPassage",
+    "parallelPassage"
+  ],
+  "sourcesExcludedFromListByParent": [
+    "desc"
+  ],
+  "showSubstitutionMarker": true,
+  "showSeparatorBetweenChanges": true,
+  "startingFromDefinitiveLayer": true,
+  "showChangeLayerMarkerInText": true,
+  "defaultImageZoomLevel": 0.8,
+  "maxImageZoomLevel": 2,
+  "multiPageEngineForCriticalEdition": false,
+  "mainTextId": "canti_leopardi_completi",
+  "witnesses": [
+    { "id": "F31", "name": "Firenze 1831 (Main witness)" },
+    { "id": "B20", "name": "Bologna 1820" },
+    { "id": "B24", "name": "Bologna 1824" },
+    { "id": "B26", "name": "Bologna 1826" },
+    { "id": "N35", "name": "Napoli 1835" },
+    { "id": "R18", "name": "Recanati 1818" }
+  ],
+  "criticalApparatus": {
+    "enable": true,
+    "mainWitness": "F31",
+    "secondaryWitnesses": ["B20", "B24", "B26", "N35", "R18"],
+    "showLemma": true
+  },
+  "layerColors": {
+    "F31": "#e8f4f8",
+    "B20": "#fffde8", 
+    "B24": "#fce8e8",
+    "B26": "#e8fce8",
+    "N35": "#fdf3e7",
+    "R18": "#f3e8fd"
+  }
+}
