@@ -1,0 +1,10 @@
+<div>
+    <evt-bibliographic-style-selector (selectionChange)="setCurrentStyle($event)"></evt-bibliographic-style-selector>
+</div>
+<div class="evt-bibliography-content list-group">
+    <ng-container *ngFor="let elem of biblList">
+        <span>
+            <evt-styled-biblio-entry [data]="elem" [style]="currentStyle"></evt-styled-biblio-entry>
+        </span>
+    </ng-container>
+</div>

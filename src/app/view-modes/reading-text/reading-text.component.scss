@@ -1,0 +1,36 @@
+.global-tools {
+    position: absolute;
+    bottom: 3.6rem;
+    right: 2.5rem;
+    z-index: 20;
+}
+
+:host ::ng-deep {
+    .global-tools .btn {
+        height: 40px;
+        width: 40px;
+    }
+    .apparatuses {
+        .panel .content {
+            padding: 0 !important;
+        }
+        .tab-pane {
+            padding: 1rem;
+        }
+        .source-container .tab-pane {
+            padding: 0.3rem !important;
+        }
+
+        .nav {
+            font-family: serif;
+            --bs-nav-link-color: white;
+            --bs-nav-link-hover-color: white;
+        }
+
+        .nav-tabs {
+            color: #ECEFF1;
+            background-color: #263238;
+        }
+
+    }
+}

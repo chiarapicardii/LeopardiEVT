@@ -1,0 +1,39 @@
+<span class="changeGroupSeparator" [hidden]="((!changeSeparatorVisible) || (isHidden(data) && !(alwaysShow)))" > > </span>
+
+<span class="mod {{data.class}} pointer" title="mod"
+    (click)="toggleOpened$.next()" 
+    [ngClass]="{'mod-highlighted': (editionLevel === 'changesView'), opened: opened$ | async}"
+    [style.text-decoration-color]="changeLayerColor()"
+    [evtEditorialConventionLayout]="editorialConventionData">
+
+    <ng-container *ngIf="editionLevel === 'changesView' && showLayerMarkers">
+        <span class="layerMarker" 
+            [hidden]="(isHidden(data) && !(alwaysShow))" 
+            [style.background-color]="changeLayerColor()">
+            {{getLayerIndex(data?.changeLayer) || 0}} 
+        </span>
+    </ng-container>
+
+    <ng-container *ngFor="let element of data.content">
+        <evt-content-viewer *ngIf="!elementsToExcludeInTextFlow.includes(element?.type)"
+            [hidden]="(isHidden(element) && !(alwaysShow))" 
+            [ngClass]="{'mod-reading': (data.insideApp[0] === false)}" 
+            [content]="element"
+            [editionLevel]="editionLevel" 
+            [itemsToHighlight]="itemsToHighlight"
+            [textFlow]="textFlow"
+            [selectedLayer]="selectedLayer$ | async"
+            [withDeletions]="withDeletions">
+        </evt-content-viewer>
+    </ng-container>
+
+</span>
+<evt-mod-detail *ngIf="opened$ | async"
+    [editionLevel]="editionLevel" 
+    [evtHtmlAttributes]="data?.attributes"
+    [mod]="data"
+    [selectedLayer]="selectedLayer$ | async"
+    [orderedLayers]="orderedLayers"
+    (hide)="toggleOpened$.next()"
+    (click)="stopPropagation($event)">
+</evt-mod-detail>

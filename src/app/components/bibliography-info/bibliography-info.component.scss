@@ -1,0 +1,12 @@
+.bibliography_header {
+    position: relative;
+    margin-top: 0;
+    height: 45px;
+    max-height: 45px;
+    text-align: center;
+}
+
+.bibliography_header>div {
+    display: flex;
+    align-content: center;
+}

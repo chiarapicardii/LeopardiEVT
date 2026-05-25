@@ -1,0 +1,63 @@
+<ng-container *ngIf="biblEntry.type && (biblEntry.type.name === 'BibliographicEntry')">
+    <ng-container *ngIf="isStructured(biblEntry); else plainText">
+        <ng-container *ngFor="let element of showList">
+            <ng-template *ngTemplateOutlet="styledBiblioTemplate; context: { element, entries: [biblEntry] }"></ng-template>
+        </ng-container>
+    </ng-container>
+    <ng-template #plainText>{{ biblEntry.text }}</ng-template>
+</ng-container>
+<ng-container *ngIf="biblEntry.type && (biblEntry.type.name === 'BibliographicStructEntry')">
+    <ng-container *ngFor="let element of showList">
+        <ng-template *ngTemplateOutlet="styledBiblioTemplate; context: { element, entries: getContextForElement(element, biblEntry)}"></ng-template>
+    </ng-container>
+</ng-container>
+
+<ng-template #styledBiblioTemplate let-element="element" let-entries="entries">
+    <ng-container *ngIf="entries.length > 0 && firstContainsProperty(entries, element)">
+            <span [ngClass]="styleProperties?.emphasized && styleProperties.emphasized.includes(element) ? 'font-italic' : ''">
+                <ng-container *ngIf="styleProperties?.inBrackets && styleProperties?.inBrackets.includes(element)">(</ng-container><ng-template [ngTemplateOutlet]="this[element]" [ngTemplateOutletContext]="{ $implicit: entries }"></ng-template><ng-container *ngIf="styleProperties?.inBrackets && styleProperties?.inBrackets.includes(element)">)</ng-container>{{styleProperties?.propsDelimiter || ","}}
+            </span>
+    </ng-container>
+</ng-template>
+
+<ng-template #title let-entries>
+<ng-container *ngIf="styleProperties?.titleQuotes">«</ng-container>{{ entries[0]?.titleDetails ? entries[0].titleDetails.title : entries[0].title }}<ng-container *ngIf="styleProperties?.titleQuotes">»</ng-container>
+</ng-template>
+
+<ng-template #author let-entries>
+    <ng-container *ngFor="let author of getAuthorsDetails(entries); last as last; index as index; count as count; ">
+            <ng-container *ngIf="author.forename && author.surname; else authorFullName">
+                <ng-container *ngFor="let name of (styleProperties.authorStyle?.order || ['surname', 'forename']); last as isLast">{{name === "forename" && styleProperties.authorStyle?.forenameInitials ? author.forenameInitials : author[name] }}<ng-container *ngIf="!isLast">,&nbsp;</ng-container></ng-container>
+            </ng-container>
+            <ng-template #authorFullName>{{ author.fullName }}</ng-template>
+            <ng-container *ngIf="!last">{{ index < count - 2 ? (styleProperties.authorStyle?.delimiter || ',') : (styleProperties.authorStyle?.lastDelimiter || " and") }}&nbsp;</ng-container>
+    </ng-container>
+</ng-template>
+
+<ng-template #publication let-entries>
+    <ng-container *ngFor="let monogr of entries; index as index; last as last">
+        <ng-container>{{ monogr.publication }}</ng-container>
+        <ng-container *ngIf="monogr?.volumeNumber">&nbsp;<span *ngIf="requiresAcronym('volume')">vol. </span>{{monogr.volumeNumber}}</ng-container>
+            <span class="font-normal">
+                <ng-container *ngIf="(index > 0 || styleProperties.publicationStyle?.includeEditor) && !containsOnlyEmptyValues(monogr.editor)">, <ng-template [ngTemplateOutlet]="editor" [ngTemplateOutletContext]="{ $implicit: [ monogr ]}"></ng-template>,</ng-container>
+                <ng-container *ngIf="monogr?.issueNumber">{{ styleProperties.publicationStyle?.inBrackets && styleProperties.publicationStyle?.inBrackets.includes('issue') ? '(' : ', ' }}<span *ngIf="requiresAcronym('issue')">no. </span>{{styleProperties?.publicationStyle?.inBrackets && styleProperties.publicationStyle?.inBrackets.includes('issue')? monogr.issueNumber + ')' : monogr.issueNumber }}</ng-container>
+                <ng-container *ngIf="styleProperties?.dateInsidePublication || index > 0">,&nbsp;<ng-container *ngIf="styleProperties?.inBrackets && styleProperties.inBrackets.includes('date')">(</ng-container><ng-template [ngTemplateOutlet]="date" [ngTemplateOutletContext]="{ $implicit: [ monogr ]}"></ng-template><ng-container *ngIf="styleProperties?.inBrackets && styleProperties.inBrackets.includes('date')">)</ng-container></ng-container>
+                <ng-container *ngIf="monogr?.pageNumber">: <span *ngIf="requiresAcronym('issue')">pp. </span>{{monogr.pageNumber}}</ng-container>
+                <ng-container *ngIf="index > 0">, <ng-container *ngFor="let property of getPublisherDetailsOrder(); last as last">{{monogr[property]}}<ng-container *ngIf="!last">: </ng-container></ng-container></ng-container>
+                <ng-container *ngIf="!last">&nbsp;{{ "reprintedIn" | translate }}&nbsp;</ng-container>
+            </span>
+    </ng-container>    
+</ng-template>
+
+<ng-template #date let-entries>{{ entries[0].date[0] || 's.d.' }}</ng-template>
+
+<ng-template #publisher let-entries>{{ entries[0].publisher }}</ng-template>
+
+<ng-template #pubPlace let-entries>{{ entries[0].pubPlace }}</ng-template>
+
+<ng-template #editor let-entries>
+    <ng-container *ngIf="!containsOnlyEmptyValues(entries[0].editor)">{{ "editedBy" | translate}}&nbsp;<ng-container *ngFor="let editor of entries[0].editor; last as last">{{editor}}<ng-container *ngIf="!last">,</ng-container></ng-container>
+    </ng-container>
+</ng-template>
+
+<ng-template #doi let-entries><ng-container *ngFor="let entry of entries"><a *ngIf="entry.doi" target="_blank" [href]="'https://doi.org/' + entry.doi">https://doi.org/{{entry.doi}}</a></ng-container></ng-template>

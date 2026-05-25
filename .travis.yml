@@ -1,0 +1,21 @@
+language: node_js
+node_js:
+  - "12.10"
+dist: trusty
+sudo: required
+cache:
+  directories:
+  - node_modules
+before_script:
+  - npm install
+script:
+  - npm run lint
+  - npm run build:gh-pages
+deploy:
+  provider: pages
+  skip_cleanup: true
+  github_token: $GITHUB_TOKEN
+  keep_history: true
+  local_dir: dist/evt-viewer-angular/
+  on:
+    branch: master

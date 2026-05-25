@@ -1,0 +1,19 @@
+<div class="container p-0 m-0">
+    <div class="d-flex align-items-center">
+        <label for="biblStyleSelect">{{ 'style' | translate }}</label>
+        <div>
+            <ng-select 
+                id="biblStyleSelect"
+                [items]="bibliographicStyles"
+                bindLabel="label"
+                bindValue="id"
+                [clearable]="false"
+                [searchable]="true"
+                [(ngModel)]="selectedStyleID"
+                (change)="changeStyle()"
+                (click)="stopPropagation($event)"
+                class="p-2">
+            </ng-select>
+        </div>
+    </div>
+</div>

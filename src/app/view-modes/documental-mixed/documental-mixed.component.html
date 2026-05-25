@@ -1,0 +1,22 @@
+<gridster [options]="layoutOptions">
+    <gridster-item [item]="imagePanelItem">
+        <evt-image-panel 
+            [viewerData]="imageViewer$ | async"
+            [pageID]="currentPageID$ | async"
+            (pageChange)="changePage($event)"
+        ></evt-image-panel>
+    </gridster-item>
+    <gridster-item [item]="textPanelItem">
+        <evt-text-panel
+            [pageID]="currentPageID$ | async" 
+            [editionLevelID]="'changesView'"
+            [selectedLayer]="lastLayer$ | async"
+            [hideEditionLevelSelector]="true"
+            [showChangeLayerSelector]="true"
+            [enableHideDeletionsToggler]="true"
+            (editionLevelChange)="changeEditionLevel($event)"
+            (pageChange)="changePage($event)" 
+            (layerChange)="changeLayer($event)" 
+        ></evt-text-panel>
+    </gridster-item>
+</gridster>
