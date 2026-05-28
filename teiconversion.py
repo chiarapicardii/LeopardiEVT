@@ -9,13 +9,15 @@ import json
 from pathlib import Path
 import sys
 
-#FIRST STEP: Setting the constants
+# ------- Setting the constants ---------------------
 
 input_file = "clean_corpus.json"
 output_folder = Path("src/assets/data")
 main_witness = "F31" #this than can be changed accordingly
 #Wikidata tag to separate the header from the actual poem
-poem_tag = "<poem>"
+poem_tag = "<poem>" 
+
+# --------- Utility functions ---------------------
 
 def make_safe_id(key: str) -> str:
     return (key
@@ -30,9 +32,7 @@ def make_safe_id(key: str) -> str:
         .replace('\u2016', '')   # ‖
         .lower())
 
-##################################
-#THE HEADER
-##################################
+# ------- regex patterns for the extraction ---------------------
 
 #mapping a pattern for the other witnesses written in the Wikimedia link syntaxis [[R18]] or
 #the [[separated by the | pipe]]
@@ -47,9 +47,7 @@ facsimile_pattern = re.compile(
 #<pb n="x"> moved
 pb_pattern = re.compile(r'<pb\s+n="(\d+)"\s*/>')
 
-
-##################################
-#SECOND STEP: EXTRACTING
+# ---------- EXTRACTION of witnesses and facsimiles ---------------------
 
 #extracting the witnesses and putting them into a list
 #"le varianti prive di sigla esplicita vengono attribuite
@@ -65,6 +63,15 @@ def extract_witnesses (header_block: str) -> list[str]:
       seen.add(witness)
       ordered.append(witness)
   return ordered
+
+#looking for all the [[File: f31xx.jpg]] and storing them into a LIST OF dictionaries, where we have xml_id and the filename
+def extract_facsimiles (wikitext: str) -> list[dict[str, str]]:
+  files = []
+  for match in facsimile_pattern.finditer(wikitext):
+    filename = match.group(1)
+    xml_id = filename.rsplit(".", 1)[0]
+    files.append({"xml_id": xml_id, "filename": filename})
+  return files
 
 #looking for the title in the wikidata link form [[F31 | title ]]
 def extract_title (wikitext: str, fallback_title: str) -> str:
@@ -83,16 +90,7 @@ def extract_title (wikitext: str, fallback_title: str) -> str:
   clean_fallback = re.sub(r"^[A-Z]\d{2}\s+", "", clean_fallback)
   return clean_fallback
 
-#looking for all the [[File: f31xx.jpg]] and storing them into a LIST OF dictionaries, where we have xml_id and the filename
-def extract_facsimiles (wikitext: str) -> list[dict[str, str]]:
-  files = []
-  for match in facsimile_pattern.finditer(wikitext):
-    filename = match.group(1)
-    xml_id = filename.rsplit(".", 1)[0]
-    files.append({"xml_id": xml_id, "filename": filename})
-  return files
-
-#THIRD STEP:TEIHEADER GENERATION
+# ------- TEI HEADER generation ---------------------
 
 #1. builing the <listWit> with every witness found
 def build_witness_list (witnesses: list[str]) -> str:
@@ -127,7 +125,6 @@ def generate_tei_header (
     year: str = "2024",
     source_bibl: str = "Edizione Fiorentina - F31 (1831)",
   ) -> str:
-
   list_wit = build_witness_list(witnesses)
 
   header = f"""  <teiHeader>
@@ -159,9 +156,10 @@ def generate_tei_header (
 
   return header
 
-###############################
-# BODY
-##############################
+# ------- TEI BODY generation --------------------- 
+
+# ------- Extracting the title --------------
+
 def extract_structured_title(wikitext:str, default_title:str) -> str:
   #looking for all the tiles
   titles = re.findall(r"\[\[Titolo:([^|\]]+)\|([^\]]+)\]\]", wikitext, re.DOTALL)
@@ -188,53 +186,41 @@ def extract_structured_title(wikitext:str, default_title:str) -> str:
 
   return f'<head>{base_text}</head>'
 
+# --------- Preprocessing the body -----------
 
 def preprocess_body(text: str) -> str:
+    text = text.replace("()", "").replace(" .", ".") 
 
-  #deleting empty links 
-  text = re.sub(r'\[\[\s*Edizione critica\s*\|?\s*\]\]', '', text, flags=re.IGNORECASE)
+    # 1. Syllabus & Line breaks
+    text = re.sub(r"([A-Za-zÀ-ÿ]+)('*)[\s]*-\s*[\r\n]+\s*('*)([A-Za-zÀ-ÿ]+)", r'\1\2<lb break="no"/>\3\4', text)
+    text = re.sub(r'-\s*<\s*\n?', '<lb break="no"/>', text)
 
-  text = re.sub(r'F31\s+[IVXLCDM]+\.?<lb/>[IVXLCDM]+\.?<lb/>', '', text, flags=re.IGNORECASE)
-  text = re.sub(r'[IVXLCDM]+\.\s+ALLA\s+PRIMAVERA,\s+O\s+DELLE\s+FAVOLE\s+ANTICHE\.', '', text)
+    # 2. Wiki-Tags & Metadata
+    text = re.sub(r'\[\[\s*Edizione critica\s*\|?\s*\]\]', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'F31\s+[IVXLCDM]+\.?<lb/>[IVXLCDM]+\.?<lb/>', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'[IVXLCDM]+\.\s+ALLA\s+PRIMAVERA,\s+O\s+DELLE\s+FAVOLE\s+ANTICHE\.', '', text)
+    text = re.sub(r'\[\[File:[^\]]+\]\]', '', text, flags=re.IGNORECASE)
+    
+    # 3. Clean remaining witnesses and HTML
+    text = re.sub(r'\[\[[A-Z]\d{2}[^\]]*\]\]', '', text)
+    text = re.sub(r'\b(NR25|CP25|NR26|CP26)\b', '', text, flags=re.IGNORECASE)
+    text = re.sub(r'<DIV[^>]*>.*?</DIV>', '', text, flags=re.DOTALL|re.IGNORECASE)
+    text = re.sub(r'<font[^>]*>.*?</font>', '', text, flags=re.DOTALL|re.IGNORECASE)
 
-  #1. deleting the patten with -< (few cases)
-  text = re.sub(r'-\s*<\s*\n?', '<lb break="no"/>', text)
+    # 4. Text Normalization
+    text = text.replace('&emsp;', '&#x2003;').replace('&nbsp;', '&#x00A0;')
+    text = re.sub(r"''+(.*?)''+", r'<hi rend="italic">\1</hi>', text)
+    text = text.replace("&apos;", "’").replace("'", "’")
+    text = re.sub(r'\(\s*\)', '', text)
+    text = re.sub(r'-\s*$', '', text, flags=re.MULTILINE)
+    
+    # 5. Filter leftovers
+    text = re.sub(r'^[IVXLCDM]+\.\s+[A-ZÀÈÉÌÒÙ ]+\.?\s*$', '', text, flags=re.MULTILINE)
+    text = re.sub(r'^\.\s*$', '', text, flags=re.MULTILINE)
+    
+    return text.strip()
 
-  #2. handling the sillabation at the end of the page
-  text = re.sub(r'-\s*\n\s*', '<lb break="no"/>', text)
-  
-  #3.deleting the [[Title... ]] block
-  text = re.sub(r"\[\[Titolo:[^\]]+\]\]", "", text)
-
-  #4.removing the [File: ] from the body
-  text = facsimile_pattern.sub("", text)
-
-  #5.Removing the remaning witnesses in the text (they are explicited just in the title)
-  text = re.sub(r"\[\[[A-Z]\d{2}[a-z]?\]\]", "", text)
-  text = re.sub(r"\[\[[A-Z]\d{2}[a-z]?[^\]|]+\|[^\]]+\]\]", "", text)
-
-  #4.Removing the tag <poem>
-  text = re.sub(r'</?poem>', '', text, flags=re.IGNORECASE)
-  text = re.sub(r'/?poem>', '', text, flags=re.IGNORECASE)
-  text = re.sub(r"\b(NR25|CP25|NR26|CP26)\b", "", text, flags=re.IGNORECASE)  #these are critical apparatus that are not witnesses but they are written in the same way, so we need to remove them
-
-  #removing the remaning HTML wikimedia tags
-  text = re.sub(r'<DIV[^>]*>.*?</DIV>', '', text, flags=re.DOTALL|re.IGNORECASE)
-  text = re.sub(r'<font[^>]*>.*?</font>', '', text, flags=re.DOTALL|re.IGNORECASE)
-  text = text.replace('&emsp;', '&#x2003;').replace('&nbsp;', '&#x00A0;')
-
-  #converting the italics 
-  text = re.sub(r"&apos;&apos;(.*?)&apos;&apos;", r'<hi rend="italic">\1</hi>', text)
-  text = re.sub(r"''(.*?)''", r'<hi rend="italic">\1</hi>', text)
-  text = re.sub(r'\(\s*\)', '', text)
-
-  text = re.sub(r'(NOTA|NOTE)\.?\s*(?:rend="indent")?\s*\(\)\s*', '', text, flags=re.IGNORECASE)
-  text = re.sub(r'\s*rend="indent"\s*', ' ', text)
-
-  text = text.replace("&apos;", "’")
-  text = text.replace("'", "’")
-
-  return text.strip()
+# ---------- CRITICAL APPARATUS ----------------------
 
 #PROBLEM: sometimes the wikidata writes as a witness variant what is the same word,
 #so it can be useful to check if the text are exactly the same
@@ -283,7 +269,6 @@ def replace_wit(text: str, witnesses: list[str], main_witness: str) -> str:
     if "<lb/>" in rdg or "\n" in rdg:
       clean_rdg = rdg.replace("<lb/>", " ").replace("\n", " ")
       return (
-                f'<!-- TRANSPOSITION: manual review needed -->'
                 f'<app><lem wit="#{main_witness}">{lem}</lem>'
                 f'<rdg wit="{secondary_wits_string}">{clean_rdg}</rdg></app>'
             )
@@ -306,6 +291,8 @@ def replace_wit(text: str, witnesses: list[str], main_witness: str) -> str:
 
   return text
 
+# -------------- handling facsimile and <pb> ----------------------
+
 #reinserting the <pb> in the text and links them with the attribute facsimile to the images
 #we already extracted them with the pre processing we just need to move them and connect them to the .jpg
 def insert_pb(text:str, facs_files: list[dict]) -> str:
@@ -327,44 +314,71 @@ def insert_pb(text:str, facs_files: list[dict]) -> str:
 
     return re.sub(r'<pb\s+n="(\d+)"\s*/>', replacer, text)
 
+# -------- structuting the verses --------------------------------
+
 #chaning all the line in <l n="N"> or with the rend="indent"
 def encode_verses(text:str) -> str:
+  lines = text.split("\n") 
+  formatted_lines = [] 
 
-  def verse_replacer(match):
-    pb_part = match.group(1) if match.group(1) else ""
-    num = match.group(2)
-    rend = match.group(3)
-    verse = match.group(4)
-    rend_attribute = f' rend="indent"' if rend else ""
-    rend_attribute = f' rend="indent"' if rend else ""
-    return f'{pb_part}          <l n="{num}"{rend_attribute}>{verse}</l>'
+  for line in lines:
+    stripped_line = line.strip()
 
-  #Problem: deleting the roman number at the beginning 
-  text = re.sub(r'^\s*[IVXLCDM]+\.\s*(?=\d+)', '', text, flags=re.MULTILINE)
+    if not stripped_line:  # Skip empty lines
+      continue
 
-  #extracting the verses num 
-  return re.sub(
-      r'^((?:<pb\s+[^>]+/>\s*)?)(\d+)(rend="indent")?\s*(.*)',
-      verse_replacer,
-      text,
-      flags=re.MULTILINE,
-  )
+    if re.match(r'^[IVXLCDM]+\.?\s*$', stripped_line, re.IGNORECASE): continue
+    if "<app>" in stripped_line and re.search(r'>[IVXLCDM]+\.?</lem>', stripped_line): continue
+
+    if stripped_line == "()":
+      continue
+
+    #ignore if there is a residual title 
+    if re.fullmatch(r'<app>.*?</app>', stripped_line): 
+        continue
+
+    stripped_line = re.sub(r'^0+rend="indent"', 'rend="indent"', stripped_line)
+    stripped_line = re.sub(r'^0+\s+', '', stripped_line)
+
+    #regez to catch the number
+    match = re.match(r'^\s*([1-9][0-9]{0,2})?\s*(.*)', stripped_line)
+    num = match.group(1)
+    verse = match.group(2).strip()
+
+    #if there is a number we put in in the L = n attribute 
+    n_attribute = f' n="{num}"' if num else '' 
+
+    is_indented = False 
+    if 'rend="indent"' in verse: 
+      is_indented = True
+      verse = verse.replace('rend="indent"', '', 1).strip()
+
+    #if the verse is empty leave it as is 
+    if verse: 
+      formatted_lines.append(f'        <l{n_attribute}>{verse}</l>')
+
+  return "\n".join(formatted_lines)
+
+# ------------ Encoding the div -------------------------------
 
 #complete ecoding of the body
-def encode_body(text:str, witnesses: list[str], facs_files: list[dict], pb_extracted: str, json_key: str) -> str:
+def encode_div(text:str, witnesses: list[str], facs_files: list[dict], pb_extracted: str, json_key: str, indent: str = "        ") -> str:
 
   #______ HANDLING PROSE _________ (critical note and letters)
   #PROBLEM the first try catched also "note" in poetry text
   jk_lower = json_key.lower()
   raw_text_stripped = text.strip()
 
+  # -------- determining the type of the div ---------
   if "lettera" in jk_lower:
     div_type = "letter"
-  elif "nota" in jk_lower or "note" in jk_lower or "annotazioni" in jk_lower or "commento" in jk_lower or raw_text_stripped.startswith("NOTA"):
+  elif ("nota" in jk_lower or "note" in jk_lower
+          or "annotazioni" in jk_lower or "commento" in jk_lower
+          or raw_text_stripped.startswith("NOTA")):
     div_type = "note"
   else: #some poems start with a note, so if there is the word "nota" in the text but not in the title we consider it a note
     if not re.search(r'^\s*\d+\s+[A-Za-zÀ-ÿ]', text, re.MULTILINE):
-      div_type = "nota"
+      div_type = "note"
     else: 
       div_type = "poem"
 
@@ -373,16 +387,21 @@ def encode_body(text:str, witnesses: list[str], facs_files: list[dict], pb_extra
   if is_prose: 
     head_tag = extract_structured_title(text, witnesses[0] if witnesses else "")
 
+    #making stricter the cleaning patterns
+    text = re.sub(r'F31\s+[IVXLCDM]+\.?<lb/>', '', text)
+    text = re.sub(r'\[\[\s*Edizione critica\s*\|?\]\]', '', text)
+    text = text.replace("", "")
+    text = re.sub(r'\s+', ' ', text)
+
     text = re.sub(r'(NOTA|NOTE)\.?(?:rend="indent")?\s*(?:\(\))?', '', text, flags=re.IGNORECASE)
     text = re.sub(r"\[\[Titolo:[^\]]*\]\]\s*", "", text)
-    text = preprocess_body(text)
     text = replace_wit(text, witnesses, main_witness)
+    text = re.sub(r'<app>\s*<lem[^>]*>[IVXLCDM]+\.?</lem>.*?</app>\s*\n?', '', text, flags=re.DOTALL)
     text = text.replace("'", "’")
-
-    text = re.sub(r'rend="indent"\s*', '', text) 
     text = re.sub(r'\(\)\s*', '', text)          
     text = re.sub(r'<font[^>]*>', '', text, flags=re.IGNORECASE)  
     text = re.sub(r'^\s*\(\)\s*', '', text)
+    text = text.strip()
 
     #in wikitext the paragraphs are divided by a double \n\n
     paragraphs = text.split("\n\n")
@@ -390,10 +409,15 @@ def encode_body(text:str, witnesses: list[str], facs_files: list[dict], pb_extra
 
     for p_text in paragraphs:
       if p_text.strip():
-        #normalizing the text
-        clean_p = re.sub(r'\s*\n\s*', ' ', p_text.strip())
+        has_indent = bool(re.search(r'rend=["”]?indent["”]?', p_text))        
+        clean_p = re.sub(r'rend=["”]?indent["”]?\s*', '', p_text).strip()
+        
+        clean_p = re.sub(r'\s*\n\s*', ' ', clean_p)
+        clean_p = clean_p.replace('<lb break="no"/>', '')
         clean_p = re.sub(r'/?poem>', '', clean_p)
-        p_blocks.append(f'        <p>{clean_p}</p>')
+        
+        p_tag = '<p rend="indent">' if has_indent else '<p>'
+        p_blocks.append(f'        {p_tag}{clean_p}</p>')
 
     body_prose = "\n".join(p_blocks)
 
@@ -420,23 +444,30 @@ def encode_body(text:str, witnesses: list[str], facs_files: list[dict], pb_extra
       canto_id = make_safe_id(canto_clean)
       corresp_attribute = f' corresp="#{canto_id}"'
 
-    return f"""  <text>
-        <body>
-          <div type="{div_type}" xml:id="{safe_id}" {corresp_attribute}>
-            <head>{head_label}</head>
-    {pb_extracted}        {body_prose}
-          </div>
-        </body>
-      </text>"""
+    return (
+            f'{indent}<div type="{div_type}" xml:id="{safe_id}"{corresp_attribute}>\n'
+            f'{pb_extracted}'
+            f'{indent}  <head>{head_label}</head>\n'
+            f'{indent}  {body_prose}\n'
+            f'{indent}</div>'
+        )
 
   #_______ HANDLING POETRY ____________
+
+  text = re.sub(r'^\s*\(\)\s*', '', text.strip())
+
+  #title management: extracting it and then deleting it from the text
+  head_tag = extract_structured_title(text, witnesses[0] if witnesses else "")
+
+  text = re.sub(r"\[\[Titolo:.*?\]\]\s*", "", text, flags=re.DOTALL) 
+
+  text = replace_wit(text, witnesses, main_witness)
+  text = re.sub(r'<app>\s*<lem\s+[^>]*>[IVXLCDM]+\.?</lem>.*?</app>\s*\n?', '', text, flags=re.DOTALL)
+  text = isolate_verse_num(text)
 
   #Saving the roman number to avoid losing it
   roman_match = re.search(r'^\s*([IVXLCDM]+\.)', text)
   roman_prefix = roman_match.group(1) if roman_match else ""
-
-  #title management: extracting it and then deleting it from the text
-  head_tag = extract_structured_title(text, witnesses[0] if witnesses else "")
 
   if ("Title not found" in head_tag or 
       ('wit="#' in head_tag and not re.search(r'wit="#[A-Z]\d{2}"', head_tag)) or 
@@ -444,7 +475,8 @@ def encode_body(text:str, witnesses: list[str], facs_files: list[dict], pb_extra
     #fallback title from the JSON key
     clean_key = re.sub(r'^[A-Z]\d{2}\s+', '', json_key)
     clean_key = re.sub(r'\s+p\.\s*\d+$', '', clean_key)
-    head_tag =f'        <head>{clean_key.strip()}</head>'
+    clean_key = re.sub(r'\s+', ' ', clean_key).strip()
+    head_tag = f'        <head>{clean_key}</head>'
 
     #removing the titile in the first line
     lines = text.split('\n')
@@ -458,48 +490,56 @@ def encode_body(text:str, witnesses: list[str], facs_files: list[dict], pb_extra
 
 
   text = re.sub(r'^[IVXLCDM]+\.\s*', '', text)
-  text = re.sub(r"\[\[Titolo:[^\]]*\]\]\s*", "", text)
   
-  #normalizing preprocessing and noise removal
-  text = preprocess_body(text)
-  #removing the ()
-  text = re.sub(r'^\s*\(\)\s*', '', text.strip())
-
   #encoding
   text = re.sub(r'<pb\s+[^>]+/>\s*', '', text) #removing the residual <pb>
   text = encode_verses(text)
-
-  text = replace_wit(text, witnesses, main_witness)
-
   #cleaning the remaning tags
-  text = re.sub(r"</?poem>", "", text)
   text = re.sub(r"\n{3,}", "\n\n", text).strip()
 
   #PROBLEM for EVT 3 visualization 
   safe_id = make_safe_id(json_key)
   
-  return f"""  <text>
-    <body>
-      <div type="poem" xml:id="{safe_id}">
-        {head_tag}
-{pb_extracted}        <lg>
-{text}
-        </lg>
-      </div>
-    </body>
-  </text>"""
+  return (
+        f'{indent}<div type="poem" xml:id="{safe_id}">\n'
+        f'{pb_extracted}'
+        f'{indent}  {head_tag}\n'
+        f'{indent}  <lg>\n'
+        f'{text}\n'
+        f'{indent}  </lg>\n'
+        f'{indent}</div>'
+    )
 
-#########################
-#ASSEMBLY
-########################
-def assemble_tei(header:str, facsimile: str, body: str) -> str:
+# ----------Cleanin the text -----------------------------
+#Pre-processing to isolate verse numbers
+def isolate_verse_num(text:str) -> str:
+  #checking for the numbers in the end of a line and inserts \n
+  #looking for verses num near the rend=tag
+  text = re.sub(r'([^\n>])\s*(\d+)(rend=)', r'\1\n\2 \3', text)
+  #PROBLEMI, SPECIFIC CASE: the number is between two apparatus so the number
+  #is not recognized. Must change re and use also an execption for the numbers
+  #who have p. previously
+  text = re.sub(
+      r'(?<!p\.)(?<!p\.\s)(?<!n=\")(?<!facs=\")(?<!wit=\")\b(\d{1,3})\b\s+(?=[A-Za-zÀ-ÿ\[\(’"“<])',        
+      r'\n\1 ',
+      text
+  )
+  return text
+
+# --------- Assembling the TEI document ---------------------
+
+def assemble_tei(header:str, facsimile: str, body_div: str) -> str:
   facs_block = f"\n{facsimile}\n" if facsimile.strip() else ""
-  return  (
+  return (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<TEI xmlns="http://www.tei-c.org/ns/1.0">\n'
         f"{header}\n"
         f"{facs_block}\n"
-        f"{body}\n"
+        f"  <text>\n"
+        f"    <body>\n"
+        f"{body_div}\n"
+        f"    </body>\n"
+        f"  </text>\n"
         "</TEI>\n"
     )
 
@@ -507,43 +547,30 @@ def convert(json_key: str, raw_text: str, witnesses_body: list[str], witnesses_h
   if not raw_text:
     raw_text = ""
 
-  raw_text = re.sub(r'\[\[\s*Edizione critica\s*\|?\s*\]\]', '', raw_text, flags=re.IGNORECASE)
-  raw_text = re.sub(r'F31\s+[IVXLCDM]+\.?<lb/>[IVXLCDM]+\.?<lb/>', '', raw_text, flags=re.IGNORECASE)
-  raw_text = re.sub(r'[IVXLCDM]+\.\s+ALLA\s+PRIMAVERA,\s+O\s+DELLE\s+FAVOLE\s+ANTICHE\.', '', raw_text)
-  
+  #extraction 
   title = extract_title(raw_text, fallback_title=json_key)
   facs_files = extract_facsimiles(raw_text)
 
-  #Try:
-  raw_text_with_facs = insert_pb(raw_text, facs_files)
+  #preliminary cleaning
+  working_text = raw_text 
+  working_text = re.sub(r'\[\[\s*Edizione critica\s*\|?\s*\]\]', '', working_text, flags=re.IGNORECASE)
+  working_text = re.sub(r'F31\s+[IVXLCDM]+\.?<lb/>[IVXLCDM]+\.?<lb/>', '', working_text, flags=re.IGNORECASE)
+  working_text = re.sub(r'[IVXLCDM]+\.\s+ALLA\s+PRIMAVERA,\s+O\s+DELLE\s+FAVOLE\s+ANTICHE\.', '', working_text)
+  working_text = preprocess_body(working_text)
 
-  #Pre-processing to isolate verse numbers
-  def isolate_verse_num(text:str) -> str:
-    #checking for the numbers in the end of a line and inserts \n
-    #looking for verses num near the rend=tag
-    text = re.sub(r'([^\n>])\s*(\d+)(rend=)', r'\1\n\2\3', text)
-    #PROBLEMI, SPECIFIC CASE: the number is between two apparatus so the number
-    #is not recognized. Must change re and use also an execption for the numbers
-    #who have p. previously
-    text = re.sub(
-        r'(?<!p\.)(?<!p\.\s)(?<!n=\")(?<!facs=\")(?<!wit=\")\b(\d{1,3})\b\s+(?=[A-Za-zÀ-ÿ\[\(’"“<])',        
-        r'\n\1 ',
-        text
-    )
-
-    return text
-
-  raw_text_with_facs = isolate_verse_num(raw_text_with_facs)
+  #structuring verses and pb 
+  working_text = insert_pb(working_text, facs_files)
+  working_text = isolate_verse_num(working_text)
 
   #I must divide the header from the body for a more precise listing of the witnesses
   #using the <poem>
-  pb_matches = re.findall(r'(<pb\s+[^>]+/>)', raw_text_with_facs)
+  pb_matches = re.findall(r'(<pb\s+[^>]+/>)',  working_text)
   pb_extracted = ""
   if pb_matches:
     pb_extracted = "".join(f"        {pb}\n" for pb in pb_matches)
 
   #clean the text
-  clean_text = re.sub(r'(<pb\s+[^>]+/>)', "", raw_text_with_facs)
+  clean_text = re.sub(r'(<pb\s+[^>]+/>)', "",  working_text)
 
   if poem_tag in clean_text:
     header_part, body_part = clean_text.split(poem_tag, 1)
@@ -554,12 +581,12 @@ def convert(json_key: str, raw_text: str, witnesses_body: list[str], witnesses_h
   header = generate_tei_header(title, witnesses_header)
   facsimile = build_facsimile(facs_files)
 
-  body = encode_body(body_part, witnesses_body, facs_files, pb_extracted, json_key)
+  body_div = encode_div(body_part, witnesses_body, facs_files, pb_extracted, json_key,
+                          indent="      ")
+  
+  return assemble_tei(header, facsimile, body_div)
 
-  return assemble_tei(header, facsimile, body)
-
-################
-#Utility
+# --------- Main execution loop ---------------------
 
 def load_data():
   with open(input_file, "r", encoding="utf-8") as f:
@@ -577,7 +604,6 @@ def run_all():
   #scanning the whole document
   canto_witnesses_set = {}
   canto_titles = {}
-
   global_witnesses = set()
 
   #global scan
@@ -588,7 +614,7 @@ def run_all():
       continue
     canto = canto_match.group(0)
 
-    #1. Extracting the witnesses of the page
+    #Extracting the witnesses of the page
     header_part = text.split(poem_tag, 1)[0] if poem_tag in text else text
     page_witnesses = extract_witnesses(header_part)
 
